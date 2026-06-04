@@ -38,7 +38,6 @@ HTML = """
 
         .screen.active { display: flex; }
 
-        /* ===== ЭКРАН 2: ПОДПИСКА ===== */
         .sub-title {
             font-size: 26px;
             font-weight: 800;
@@ -120,7 +119,6 @@ HTML = """
         }
 
         .btn-subscribe:active { opacity: 0.8; }
-
         .btn-subscribe.done {
             background: #2ecc71;
             pointer-events: none;
@@ -149,7 +147,6 @@ HTML = """
             margin-top: 10px;
         }
 
-        /* ===== ЭКРАН 3: КОД ===== */
         .code-title {
             font-size: 26px;
             font-weight: 800;
@@ -265,7 +262,6 @@ HTML = """
             min-height: 18px;
         }
 
-        /* ===== ЭКРАН 4: УСПЕХ ===== */
         .success-title {
             font-size: 26px;
             font-weight: 800;
@@ -329,6 +325,34 @@ HTML = """
             font-size: 13px;
             color: rgba(255,255,255,0.4);
             margin-top: 4px;
+        }
+
+        .discount-block {
+            background: #2a2a2a;
+            border: 1px solid rgba(212,175,55,0.4);
+            border-radius: 14px;
+            padding: 18px;
+            text-align: center;
+            margin-bottom: 12px;
+        }
+
+        .discount-label {
+            font-size: 13px;
+            color: rgba(255,255,255,0.5);
+            margin-bottom: 8px;
+        }
+
+        .discount-code {
+            font-size: 22px;
+            font-weight: 900;
+            letter-spacing: 3px;
+            color: #D4AF37;
+            margin-bottom: 6px;
+        }
+
+        .discount-hint {
+            font-size: 12px;
+            color: rgba(255,255,255,0.35);
         }
 
         .success-hint {
@@ -427,6 +451,13 @@ HTML = """
         <div class="entries-count" id="entriesCount">Ваших участий: 1</div>
         <div class="entries-add">Добавьте ещё код, чтобы увеличить шансы</div>
     </div>
+
+    <div class="discount-block">
+        <div class="discount-label">🏷 Ваш промокод на скидку Yamaguchi</div>
+        <div class="discount-code" id="discountCode"></div>
+        <div class="discount-hint">Введите код при оформлении заказа на yamaguchi.ru</div>
+    </div>
+
     <div class="success-hint">Следите за новостями в каналах<br>Итоги розыгрыша скоро!</div>
 
     <button class="btn-add-code" onclick="addAnotherCode()">+ Добавить ещё один код</button>
@@ -452,8 +483,6 @@ HTML = """
     }
 
     function checkSubscription() {
-        // Пока заглушка — пропускаем без проверки
-        // После подключения реальных каналов заменим на API вызов
         showScreen('screen-code');
     }
 
@@ -490,6 +519,7 @@ HTML = """
 
             if (data.success) {
                 document.getElementById('entriesCount').textContent = 'Ваших участий: ' + data.user_codes;
+                document.getElementById('discountCode').textContent = data.discount_code;
                 showScreen('screen-success');
             } else {
                 err.textContent = data.message;
@@ -545,7 +575,8 @@ def submit_code():
 
     return jsonify({
         'success': True,
-        'user_codes': user_codes
+        'user_codes': user_codes,
+        'discount_code': os.getenv('DISCOUNT_CODE', 'YAMAGUCHI2024')
     })
 
 if __name__ == '__main__':
