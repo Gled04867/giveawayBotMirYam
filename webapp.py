@@ -12,6 +12,48 @@ BOT_TOKEN = os.getenv("BOT_TOKEN")
 def static_files(filename):
     return send_from_directory('static', filename)
 
+import asyncio
+
+@app.route('/check_subscription', methods=['POST'])
+def check_subscription():
+    data = request.get_json()
+    user_id = data.get('user_id')
+    if not user_id:
+        return jsonify({'subscribed': False})
+    channels = [-1001510796913, -1003623085970]
+    for channel_id in channels:
+        url = f"https://api.telegram.org/bot{BOT_TOKEN}/getChatMember"
+        import requests as req
+        response = req.get(url, params={'chat_id': channel_id, 'user_id': user_id})
+        result = response.json()
+        if not result.get('ok'):
+            return jsonify({'subscribed': False})
+        status = result['result']['status']
+        if status in ['left', 'kicked', 'banned']:
+            return jsonify({'subscribed': False})
+    return jsonify({'subscribed': True})
+
+@app.route('/send_promo', methods=['POST'])
+def send_promo():
+    data = request.get_json()
+    user_id = data.get('user_id')
+    if not user_id:
+        return jsonify({'success': False})
+    try:
+        import requests as req
+        with open('static/promo.jpg', 'rb') as photo:
+            req.post(
+                f"https://api.telegram.org/bot{BOT_TOKEN}/sendPhoto",
+                data={
+                    'chat_id': user_id,
+                    'caption': 'Ваш промокод: STEAKBURGER2000\n\nСкидка 2000 руб на все товары Yamaguchi!\nДействует до 31 июля.'
+                },
+                files={'photo': photo}
+            )
+        return jsonify({'success': True})
+    except Exception as e:
+        return jsonify({'success': False})
+
 HTML = """
 <!DOCTYPE html>
 <html lang="ru">
@@ -72,14 +114,6 @@ HTML = """
             font-size: 22px;
             font-weight: 800;
         }
-        .channel-avatar.miratorg {
-            background: #1a1a1a;
-            color: #fff;
-            font-size: 11px;
-            text-align: center;
-            line-height: 1.2;
-            padding: 6px;
-        }
         .channel-avatar.yamaguchi {
             background: #E31E24;
             color: #fff;
@@ -87,14 +121,10 @@ HTML = """
             font-weight: 900;
         }
         .channel-info { flex: 1; }
-        .channel-name {
-            font-size: 15px;
-            font-weight: 700;
-            margin-bottom: 2px;
-        }
         .channel-username {
-            font-size: 13px;
-            color: rgba(255,255,255,0.4);
+            font-size: 10px;
+            font-weight: 600;
+            color: #fff;
         }
         .btn-subscribe {
             background: #E31E24;
@@ -107,6 +137,8 @@ HTML = """
             cursor: pointer;
             white-space: nowrap;
             transition: opacity 0.2s;
+            flex-shrink: 0;
+            min-width: 110px;
         }
         .btn-subscribe:active { opacity: 0.8; }
         .btn-subscribe.done {
@@ -146,47 +178,6 @@ HTML = """
             text-align: center;
             margin-bottom: 24px;
             line-height: 1.5;
-        }
-        .code-card {
-            background: #E31E24;
-            border-radius: 20px;
-            padding: 24px;
-            margin-bottom: 24px;
-            position: relative;
-            overflow: hidden;
-            min-height: 140px;
-            display: flex;
-            flex-direction: column;
-            justify-content: flex-end;
-        }
-        .code-card::after {
-            content: '';
-            position: absolute;
-            right: -20px;
-            top: -20px;
-            width: 160px;
-            height: 160px;
-            background: rgba(255,255,255,0.08);
-            border-radius: 50%;
-        }
-        .code-card-brand {
-            font-size: 13px;
-            font-weight: 800;
-            color: rgba(255,255,255,0.7);
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
-            margin-bottom: 4px;
-        }
-        .code-card-label {
-            font-size: 12px;
-            color: rgba(255,255,255,0.6);
-            margin-bottom: 4px;
-        }
-        .code-card-value {
-            font-size: 17px;
-            font-weight: 800;
-            color: #fff;
-            letter-spacing: 1px;
         }
         .code-input {
             width: 100%;
@@ -259,6 +250,20 @@ HTML = """
             line-height: 1.5;
             margin-top: 4px;
         }
+        .btn-save {
+            width: 100%;
+            padding: 18px;
+            background: #2a2a2a;
+            border: 1px solid rgba(212,175,55,0.4);
+            border-radius: 14px;
+            color: #D4AF37;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            margin-top: 12px;
+            transition: background 0.2s;
+        }
+        .btn-save:active { background: rgba(212,175,55,0.1); }
         .btn-add-code {
             width: 100%;
             padding: 18px;
@@ -282,9 +287,8 @@ HTML = """
     <div class="sub-title">Подпишитесь на 2 канала,<br>чтобы продолжить</div>
     <div class="sub-subtitle">Подписка на оба канала обязательна<br>для участия в розыгрыше</div>
     <div class="channel-card">
-        <div class="channel-avatar miratorg">СТЕЙК &<br>БУРГЕР<br>МИРАТОРГ</div>
+        <img src="/static/miratorg.jpg" style="width:56px; height:56px; border-radius:50%; object-fit:cover; flex-shrink:0;" />
         <div class="channel-info">
-            <div class="channel-name">Стейк & бургер Мираторг</div>
             <div class="channel-username">@burgers_by_miratorg</div>
         </div>
         <button class="btn-subscribe" id="btn-sub-1" onclick="openChannel('https://t.me/burgers_by_miratorg', 'btn-sub-1')">
@@ -294,10 +298,9 @@ HTML = """
     <div class="channel-card">
         <div class="channel-avatar yamaguchi">Y</div>
         <div class="channel-info">
-            <div class="channel-name">Yamaguchi</div>
-            <div class="channel-username">@yamaguchi_ru</div>
+            <div class="channel-username">@yamaguchiwellnessclub</div>
         </div>
-        <button class="btn-subscribe" id="btn-sub-2" onclick="openChannel('https://t.me/yamaguchi_ru', 'btn-sub-2')">
+        <button class="btn-subscribe" id="btn-sub-2" onclick="openChannel('https://t.me/yamaguchiwellnessclub', 'btn-sub-2')">
             Подписаться
         </button>
     </div>
@@ -309,11 +312,7 @@ HTML = """
 <div class="screen" id="screen-code">
     <div class="code-title">Зарегистрируй код</div>
     <div class="code-subtitle">Найди уникальный код на карточке<br>участника розыгрыша</div>
-    <div class="code-card">
-        <div class="code-card-brand">Yamaguchi × Мираторг</div>
-        <div class="code-card-label">Уникальный код</div>
-        <div class="code-card-value" id="cardCodeDisplay">XXXX-XXXX-XXXX</div>
-    </div>
+    <img src="/static/banner.jpg" style="width:100%; border-radius:16px; margin-bottom:16px;" />
     <input
         type="text"
         class="code-input"
@@ -324,7 +323,9 @@ HTML = """
     />
     <div class="code-hint">1 код = 1 участие в розыгрыше</div>
     <button class="btn-register" id="submitBtn" onclick="submitCode()">Зарегистрировать</button>
-    <div class="error-msg" id="errorMsg"></div>
+<div class="error-msg" id="errorMsg"></div>
+<div style="font-size:11px; color:rgba(255,255,255,0.4); text-align:center; margin-top:12px; line-height:1.5;">
+    Нажимая кнопку, я даю <a href="https://docs.google.com/document/d/1l-0TqovLM877mpf-7WQwONhPGQ4yURhw/edit" style="color:rgba(255,255,255,0.6);">согласие на обработку моих персональных данных</a> в соответствии с <a href="https://docs.google.com/document/d/1l6CwerdEEllCQ5oTuHzaJxqWFfAevJq2/edit" style="color:rgba(255,255,255,0.6);">Политикой обработки персональных данных</a> и подтверждаю, что ознакомлен(а) с условиями <a href="https://docs.google.com/document/d/1dO4V3yiXC3dc4PBJZkLKhryMXyPei6JL/edit" style="color:rgba(255,255,255,0.6);">оферты</a> и принимаю их.
 </div>
 
 <!-- ЭКРАН 4: УСПЕХ -->
@@ -334,7 +335,19 @@ HTML = """
         <div class="entries-count" id="entriesCount">Ваших участий: 1</div>
         <div class="entries-add">Добавьте ещё код, чтобы увеличить шансы</div>
     </div>
-    <div class="success-hint">Следите за новостями в каналах<br>Итоги розыгрыша скоро!</div>
+    <button class="btn-save" onclick="saveCertificate()">Сохранить промокод</button>
+    <div class="success-hint" style="text-align:left; color:rgba(255,255,255,0.7); font-size:14px; line-height:1.6; margin-top:16px;">
+    <b>Баланс вкуса и спорта</b><br><br>
+    Маленькие радости — это вкусная еда. Большие результаты — это спорт. А вместе — идеальный баланс. Побалуйте себя и не забывайте про тренировки для тонуса и энергии.<br><br>
+    Дарим промокод за участие: <b>STEAKBURGER2000</b><br><br>
+    Скидка 2.000 ₽ на все товары Yamaguchi.<br>
+    Оплата промокодом — не более 20% от стоимости заказа.<br><br>
+    &#8226; Промокод действует один раз на пользователя.<br>
+    &#8226; Скидки и акции суммируются.<br>
+    &#8226; Доступен до 31 июля.<br><br>
+    Желаем удачи в розыгрыше и приятных покупок!<br><br>
+    Итоги розыгрыша беговой дорожки подведем 28 июня.
+    </div>
     <button class="btn-add-code" onclick="addAnotherCode()">+ Добавить ещё один код</button>
 </div>
 
@@ -349,21 +362,38 @@ HTML = """
     }
 
     function openChannel(url, btnId) {
-        window.open(url, '_blank');
-        setTimeout(() => {
-            const btn = document.getElementById(btnId);
-            btn.textContent = '✓ Готово';
-            btn.classList.add('done');
-        }, 1500);
+    window.open(url, '_blank');
     }
 
-    function checkSubscription() {
-        showScreen('screen-code');
+    window.checkSubscription = function() {
+        var user = tg.initDataUnsafe.user;
+        if (!user) { showScreen('screen-code'); return; }
+        fetch('/check_subscription', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({user_id: user.id})
+        }).then(function(r) { return r.json(); }).then(function(data) {
+            if (data.subscribed) { showScreen('screen-code'); }
+            else { alert('Подпишитесь на каналы и попробуйте снова'); }
+        }).catch(function() { showScreen('screen-code'); });
     }
 
     function updateCardDisplay(val) {
         const display = document.getElementById('cardCodeDisplay');
-        display.textContent = val.trim().toUpperCase() || 'XXXX-XXXX-XXXX';
+        if (display) display.textContent = val.trim().toUpperCase() || 'XXXX-XXXX-XXXX';
+    }
+
+    function saveCertificate() {
+        var user = tg.initDataUnsafe.user;
+        if (!user) { alert('Ошибка: пользователь не найден'); return; }
+        fetch('/send_promo', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({user_id: user.id})
+        }).then(function(r) { return r.json(); }).then(function(data) {
+            if (data.success) { alert('Промокод отправлен в чат!'); }
+            else { alert('Ошибка отправки'); }
+        }).catch(function() { alert('Ошибка соединения'); });
     }
 
     async function submitCode() {
@@ -409,7 +439,6 @@ HTML = """
 
     function addAnotherCode() {
         document.getElementById('codeInput').value = '';
-        document.getElementById('cardCodeDisplay').textContent = 'XXXX-XXXX-XXXX';
         document.getElementById('errorMsg').textContent = '';
         document.getElementById('submitBtn').disabled = false;
         document.getElementById('submitBtn').textContent = 'Зарегистрировать';

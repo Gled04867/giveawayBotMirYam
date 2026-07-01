@@ -123,3 +123,60 @@ def get_codes_count() -> dict:
     used = cursor.fetchone()[0]
     conn.close()
     return {"free": free, "used": used}
+
+def get_user_codes_list(username: str):
+    """Возвращает все коды пользователя по username"""
+    conn = sqlite3.connect(DB_PATH)
+    cursor = conn.cursor()
+    cursor.execute(
+        "SELECT code, joined_at FROM participants WHERE username = ?", (username,)
+    )
+    result = cursor.fetchall()
+    conn.close()
+    return result
+
+def remove_user_by_username(username: str) -> int:
+    """Удаляет участника и его коды навсегда"""
+    conn = sqlite3.connect(DB_PATH)
+    cursor = conn.cursor()
+    cursor.execute("SELECT code FROM participants WHERE username = ?", (username,))
+    codes = [row[0] for row in cursor.fetchall()]
+    for code in codes:
+        cursor.execute("DELETE FROM codes WHERE code = ?", (code,))
+    cursor.execute("DELETE FROM participants WHERE username = ?", (username,))
+    deleted = cursor.rowcount
+    conn.commit()
+    conn.close()
+    return deleted
+
+def save_winner(user_id: int, username: str, full_name: str, code: str):
+    conn = sqlite3.connect(DB_PATH)
+    cursor = conn.cursor()
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS winner (
+            id INTEGER PRIMARY KEY,
+            user_id INTEGER,
+            username TEXT,
+            full_name TEXT,
+            code TEXT,
+            selected_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+    """)
+    cursor.execute("DELETE FROM winner")
+    cursor.execute(
+        "INSERT INTO winner (user_id, username, full_name, code) VALUES (?, ?, ?, ?)",
+        (user_id, username, full_name, code)
+    )
+    conn.commit()
+    conn.close()
+
+def get_winner():
+    conn = sqlite3.connect(DB_PATH)
+    cursor = conn.cursor()
+    try:
+        cursor.execute("SELECT user_id, username, full_name, code FROM winner")
+        result = cursor.fetchone()
+    except:
+        result = None
+    conn.close()
+    return result
